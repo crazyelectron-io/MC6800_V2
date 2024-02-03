@@ -1,0 +1,1180 @@
+                    ;from  "MC6802 Motherboard microcomputer controller" PDF document,
+                    ; proprietary work done by Michael J Lee, in the early 1908's. 
+                    ; Provided by Mike Lee, For Herb's eyes only! May 14 2022 HRJ
+                    ; Herb extracted this listing from that document as embedded text.  
+
+                    ; The Operating System 
+                    ; "The operating system is based on the 1976 Ed Smith SMITHBUG which has been, 
+                    ;over the years, modified by me to incorporate Memory Test, I/O Test and a S1 Loader Tool. 
+                    ;The S1 loading program tool enables an intelligent video terminal (
+                    ;possibly a PC running the PUTTY terminal emulator) to be used as program
+                    ; storage device to load application software."
+
+
+00002               ;       REV 004 
+00003               ; 
+00004               ;       M      MOVE MEMORY 
+00005               ;       E      CHANGE MEMORY 
+00006               ;       G      GO TO PROGRAM 
+00007               ;       R      PRINT 
+00008               ;       T      TRACE PROGRAM 
+00009               ;       @      ASCII CONVERSION 
+00010               ;       H      PRINTER ON 
+00011               ;       V      VIEW MEMORY 
+00012               ;       I      FILL MEMORY 
+00013               ;       J      JUMP TO TARGET PROGRAM 
+00014               ;       F      FIND  
+00015               ;       Q      HARDWARE LOCATION 
+00016               ;       D      DISASSEMBLE CODE 
+00017               ;       K      CONTINUE AFTER BREAK 
+00018               ;       1      BREAKPOINT ONE 
+00019               ;       2      BREAKPOINT TWO 
+00020               ;       &      S1 LOAD PROGRAMME 
+00021               ;       *      HARDWARE LOCATION (TBA) 
+00022               ;       O      ECHO ON 
+00023               ;       N      ECHO OFF 
+00024               ; 
+00025         7F00                VAR             EQU     $7F00            ; TOP OF USER MEMORY 
+00026               ; 
+00027               ;       ADDRESS 
+00028               ; 
+00029               ; 
+00030         7F00                                ORG     VAR 
+00031               ; 
+00032 7F00                        BUFFER          RMB     2                ; Buffer to protect system scratch 
+00033 7F02                        IOV             RMB     2 
+00034 7F04                        BEGA            RMB     2 
+00035 7F06                        ENDA            RMB     2 
+00036 7F08                        NIO             RMB     2 
+00037 7F0A                        SP              RMB     2 
+00038 7F0C                        ACIAT           RMB     1 
+00039 7F0D                        ECHO            RMB     1 
+00040 7F0E                        XHI             RMB     1 
+00041 7F0F                        XLOW            RMB     1 
+00042 7F10                        TEMP            RMB     1 
+00043 7F11                        TW              RMB     2 
+00044 7F13                        TFLAG           RMB     1 
+00045 7F14                        XTEMP           RMB     2 
+00046 7F16                        BKFLG           RMB     1 
+00047 7F17                        SWIPTR          RMB     45 
+00048 7F44                        STACK           RMB     8 
+00049 7F4C                        PRINTR          RMB     3 
+00050 7F4F                        BFLAG           RMB     1 
+00051 7F50                        MFLAG           RMB     1 
+00052 7F51                        XFLAG           RMB     1 
+00053 7F52                        BITE2           RMB     1 
+00054 7F53                        BITE3           RMB     15 
+00055 7F62                        TSTACK          RMB     1 
+00056 7F63                        OPSAVE          RMB     1 
+00057 7F64                        PB1             RMB     1 
+00058 7F65                        PB2             RMB     1 
+00059 7F66                        PB3             RMB     1 
+00060 7F67                        BYTECT          RMB     1 
+00061 7F68                        PC1             RMB     1 
+00062 7F69                        PC2             RMB     1 
+00063 7F6A                        BPOINT          RMB     3 
+00064 7F6D                        BKFLG2          RMB     1 
+00065 7F6E                        MCONT           RMB     1 
+00066               ; 
+00067 7F6F                        TEMPX1          RMB     2                ; S-Load Temporary X register 
+00068 7F71                        ADDRESS         RMB     1                ; Build 16 bit address byte 1 
+00069 7F72                        ADDRESS1        RMB     1                ; Build 16 bit address byte 2 
+00070 7F73                        BYTESTORE       RMB     1                ; Save Byte Count 
+00071 7F74                        TEMPA           RMB     1                ; Save A Register 
+00072               ; 
+00073         8018                ACIACS          EQU     $8018 
+00074         8019                ACIADA          EQU     $8019 
+00075               ; 
+00076         8000                PIAD1A          EQU     $8000 
+00077         8001                PIAS1A          EQU     $8001 
+00078         8002                PIAD1B          EQU     $8002 
+00079         8003                PIAS1B          EQU     $8003 
+00080               ; 
+00081         8008                PIAD2A          EQU     $8008 
+00082         8009                PIAS2A          EQU     $8009 
+00083         800A                PIAD2B          EQU     $800A 
+00084         800B                PIAS2B          EQU     $800B 
+00085               ; 
+00086               ;       OPT    MEMORY 
+00087               ; 
+00088         C000                                ORG     $C000 
+00089               ; 
+00090               ;       ENTER POWER ON SEQUENCE 
+00091               ; 
+00092         C000                START           EQU     * 
+00093 C000 8E 7F44                                LDS     #STACK 
+00094 C003 BF 7F0A                                STS     SP 
+00095 C006 7F 7F0D                                CLR     ECHO 
+00096 C009 CE C125                                LDX     #SFE 
+00097 C00C FF 7F17                                STX     SWIPTR 
+00098 C00F FF 7F08                                STX     NIO 
+00099               ; 
+00100               ;       ACIA INITIALISE 
+00101               ; 
+00102 C012 86 03                                  LDAA    #$03             ;RESET CODE 
+00103 C014 B7 8018                                STAA    ACIACS 
+00104 C017 01                                     NOP 
+00105 C018 01                                     NOP 
+00106 C019 01                                     NOP 
+00107 C01A 86 15                                  LDAA    #$15             ;8N1 NON-INTERRUPT 
+00108 C01C B7 7F0C                                STAA    ACIAT 
+00109               ; 
+00110               ;       COMMAND CONTROL 
+00111               ; 
+00112 C01F B6 7F0C                CONTRL          LDA A   ACIAT 
+00113 C022 B7 8018                                STA A   ACIACS 
+00114 C025 8E 7F44                                LDS     #STACK           ;SET CONTRL STACK POINTER 
+00115 C028 8E 7F62                                LDS     #TSTACK 
+00116 C02B 7F 7F13                                CLR     TFLAG 
+00117 C02E 7F 7F16                                CLR     BKFLG 
+00118 C031 7F 7F6D                                CLR     BKFLG2 
+00119 C034 CE C767                                LDX     #MCL 
+00120 C037 8D 61                                  BSR     PDATA1 
+00121 C039 8D 59                                  BSR     INCH 
+00122 C03B 16                                     TAB 
+00123 C03C BD C0EF                                JSR     OUTS 
+00124               ; 
+00125               ; CHECK IF COMMAND IS VALID AND JUMP TO APPLICATION 
+00126               ; 
+00127 C03F CE C7BC                                LDX     #FUTABL 
+00128 C042 E1 00                  NXTCHR          CMP B   0,X 
+00129 C044 27 0B                                  BEQ     GOODCH 
+00130 C046 08                                     INX 
+00131 C047 08                                     INX 
+00132 C048 08                                     INX 
+00133 C049 8C C7F8                                CPX     #TBLEND 
+00134 C04C 26 F4                                  BNE     NXTCHR 
+00135 C04E 7E C441                                JMP     CKCBA 
+00136 C051 EE 01                  GOODCH          LDX     1,X 
+00137 C053 6E 00                                  JMP     0,X 
+00138               ; 
+00139               ;  IRQ INTERUPT SEQUENCE 
+00140               ; 
+00141 C055 FE 7F02                IO              LDX     IOV 
+00142 C058 6E 00                                  JMP     0,X 
+00143               ; 
+00144               ;  NMI SEQUENCE 
+00145               ; 
+00146 C05A FE 7F08                POWDWN          LDX     NIO 
+00147 C05D 6E 00                                  JMP     0,X 
+00148               ; 
+00149               ;  SWI SEQUENCE 
+00150               ; 
+00151 C05F FE 7F17                SWI             LDX     SWIPTR 
+00152 C062 6E 00                                  JMP     0,X 
+00153 C064 86 3F                  LOAD19          LDA A   #$3F 
+00154 C066 8D 29                                  BSR     OUTCH 
+00155 C068 20 B5                  C1              BRA     CONTRL 
+00156               ; 
+00157               ;  BUILD ADDRESS 
+00158               ; 
+00159 C06A 8D 0C                  BADDR           BSR     BYTE 
+00160 C06C B7 7F0E                                STA A   XHI 
+00161 C06F 8D 07                                  BSR     BYTE 
+00162 C071 B7 7F0F                                STA A   XLOW 
+00163 C074 FE 7F0E                                LDX     XHI 
+00164 C077 39                                     RTS 
+00165               ; 
+00166               ;  INPUT ONE BYTE 
+00167               ; 
+00168 C078 8D 53                  BYTE            BSR     INHEX 
+00169 C07A 48                                     ASL A 
+00170 C07B 48                                     ASL A 
+00171 C07C 48                                     ASL A 
+00172 C07D 48                                     ASL A 
+00173 C07E 16                                     TAB 
+00174 C07F 8D 4C                                  BSR     INHEX 
+00175 C081 1B                                     ABA 
+00176 C082 39                                     RTS 
+00177               ; 
+00178               ;  OUTPUT LEFT HEX NUMBER 
+00179               ; 
+00180 C083 44                     OUTHL           LSR A 
+00181 C084 44                                     LSR A 
+00182 C085 44                                     LSR A 
+00183 C086 44                                     LSR A 
+00184               ; 
+00185               ;  OUTPUT RIGHT HEX NUMBER 
+00186               ; 
+00187 C087 84 0F                  OUTHR           AND A   #$F 
+00188 C089 8B 30                                  ADD A   #$30 
+00189 C08B 81 39                                  CMP A   #$39 
+00190 C08D 23 02                                  BLS     OUTCH 
+00191 C08F 8B 07                                  ADD A   #$7 
+00192 C091 7E C20A                OUTCH           JMP     OUTEEE 
+00193 C094 7E C1F3                INCH            JMP     INEEE 
+00194               ; 
+00195 C097 8D F8                  PDATA2          BSR     OUTCH 
+00196 C099 08                                     INX 
+00197 C09A A6 00                  PDATA1          LDA A   0,X 
+00198 C09C 81 04                                  CMP A   #$4 
+00199 C09E 26 F7                                  BNE     PDATA2 
+00200 C0A0 39                                     RTS 
+00201               ; 
+00202               ; CHANGE MEMORY 
+00203               ; 
+00204 C0A1 8D C7                  CHANGE          BSR     BADDR 
+00205 C0A3 CE C767                CHA51           LDX     #MCL 
+00206 C0A6 8D F2                                  BSR     PDATA1 
+00207 C0A8 8D 72                                  BSR     OUTXHI 
+00208 C0AA 8D 41                                  BSR     OUT2HS 
+00209 C0AC FF 7F0E                                STX     XHI 
+00210 C0AF 8D E3                                  BSR     INCH 
+00211 C0B1 81 20                                  CMP A   #$20 
+00212 C0B3 27 EE                                  BEQ     CHA51 
+00213 C0B5 81 5E                                  CMP A   #$5E 
+00214 C0B7 26 07                                  BNE     CHM1 
+00215 C0B9 09                                     DEX 
+00216 C0BA 09                                     DEX 
+00217 C0BB FF 7F0E                                STX     XHI 
+00218 C0BE 20 E3                                  BRA     CHA51 
+00219 C0C0 8D 0D                  CHM1            BSR     INHEX+2 
+00220 C0C2 8D B6                                  BSR     BYTE+2 
+00221 C0C4 09                                     DEX 
+00222 C0C5 A7 00                                  STA A   0,X 
+00223 C0C7 A1 00                                  CMP A   0,X 
+00224 C0C9 27 D8                                  BEQ     CHA51 
+00225               ; 
+00226 C0CB 20 97                  XBK             BRA     LOAD19 
+00227               ; 
+00228 C0CD 8D C5                  INHEX           BSR     INCH 
+00229 C0CF 80 30                                  SUB A   #$30 
+00230 C0D1 2B 95                                  BMI     C1 
+00231 C0D3 81 09                                  CMP A   #$9 
+00232 C0D5 2F 0A                                  BLE     IN1HG 
+00233 C0D7 81 11                                  CMP A   #$11 
+00234 C0D9 2B 8D                                  BMI     C1 
+00235 C0DB 81 16                                  CMP A   #$16 
+00236 C0DD 2E 89                                  BGT     C1 
+00237 C0DF 80 07                                  SUB A   #$7 
+00238 C0E1 39                     IN1HG           RTS 
+00239               ; 
+00240               ; 
+00241 C0E2 A6 00                  OUT2H           LDA A   0,X 
+00242 C0E4 8D 9D                                  BSR     OUTHL 
+00243 C0E6 A6 00                                  LDA A   0,X 
+00244 C0E8 08                                     INX 
+00245 C0E9 20 9C                                  BRA     OUTHR 
+00246               ; 
+00247 C0EB 8D F5                  OUT4HS          BSR     OUT2H 
+00248 C0ED 8D F3                  OUT2HS          BSR     OUT2H 
+00249 C0EF 86 20                  OUTS            LDA A   #$20 
+00250 C0F1 20 9E                                  BRA     OUTCH 
+00251               ; 
+00252               ; SET BREAK POINTS 
+00253               ; 
+00254 C0F3 BD C261                BKPNT2          JSR     ADDR 
+00255 C0F6 FF 7F68                                STX     PC1 
+00256 C0F9 A6 00                                  LDA A   0,X 
+00257 C0FB B7 7F6D                                STA A   BKFLG2 
+00258 C0FE 27 CB                                  BEQ     XBK 
+00259 C100 86 3F                                  LDA A   #$3F 
+00260 C102 A7 00                                  STA A   0,X 
+00261 C104 BD C261                BKPNT           JSR     ADDR 
+00262 C107 FF 7F65                                STX     PB2 
+00263 C10A A6 00                                  LDA A   0,X 
+00264 C10C B7 7F16                                STA A   BKFLG 
+00265 C10F 27 BA                                  BEQ     XBK 
+00266 C111 86 3F                                  LDA A   #$3F 
+00267 C113 A7 00                                  STA A   0,X 
+00268 C115 BD C2C4                                JSR     CRLF 
+00269               ; 
+00270               ; FALL INTO GO COMMAND 
+00271               ; 
+00272 C118 BE 7F0A                CONTG           LDS     SP 
+00273 C11B 3B                                     RTI 
+00274               ; 
+00275               ; PRINT XHI ADDRESS SUB 
+00276               ; 
+00277 C11C CE 7F0E                OUTXHI          LDX     #XHI 
+00278 C11F 8D CA                                  BSR     OUT4HS 
+00279 C121 FE 7F0E                                LDX     XHI 
+00280 C124 39                                     RTS 
+00281               ; 
+00282               ; VECTORED SWI ROUTINE 
+00283               ; 
+00284 C125 BF 7F0A                SFE             STS     SP 
+00285 C128 30                                     TSX 
+00286 C129 6D 06                                  TST     6,X 
+00287 C12B 26 02                                  BNE     *+4 
+00288 C12D 6A 05                                  DEC     5,X 
+00289 C12F 6A 06                                  DEC     6,X 
+00290 C131 8E 7F62                                LDS     #TSTACK 
+00291 C134 7D 7F13                                TST     TFLAG 
+00292 C137 27 18                                  BEQ     PRINT 
+00293 C139 FE 7F68                                LDX     PC1 
+00294 C13C B6 7F63                                LDA A   OPSAVE 
+00295 C13F A7 00                                  STA A   0,X 
+00296 C141 7D 7F4F                                TST     BFLAG 
+00297 C144 27 08                                  BEQ     DISPLY 
+00298 C146 FE 7F6A                                LDX     BPOINT 
+00299 C149 B6 7F6C                                LDA A   BPOINT+2 
+00300 C14C A7 00                                  STA A   0,X 
+00301 C14E 7E C2E4                DISPLY          JMP     RETURN 
+00302               ; 
+00303               ; PRINT REGISTERS 
+00304               ; 
+00305 C151 FE 7F0A                PRINT           LDX     SP 
+00306 C154 86 06                                  LDA A   #6 
+00307 C156 B7 7F6E                                STA A   MCONT 
+00308 C159 E6 01                                  LDA B   1,X 
+00309 C15B 58                                     ASL B 
+00310 C15C 58                                     ASL B 
+00311 C15D CE C77E                                LDX     #CSET 
+00312               ; 
+00313 C160 86 2D                  DSOOP           LDA A   #$2D 
+00314 C162 58                                     ASL B 
+00315 C163 24 02                                  BCC     DSOOP1 
+00316 C165 A6 00                                  LDA A   0,X 
+00317 C167 BD C20A                DSOOP1          JSR     OUTEEE 
+00318 C16A 08                                     INX 
+00319 C16B 7A 7F6E                                DEC     MCONT 
+00320 C16E 26 F0                                  BNE     DSOOP 
+00321 C170 CE C76D                                LDX     #BREG 
+00322 C173 8D 5A                                  BSR     PDAT 
+00323 C175 FE 7F0A                                LDX     SP 
+00324 C178 08                                     INX 
+00325 C179 08                                     INX 
+00326 C17A BD C0ED                                JSR     OUT2HS 
+00327 C17D FF 7F10                                STX     TEMP 
+00328 C180 CE C771                                LDX     #AREG 
+00329 C183 8D 4A                                  BSR     PDAT 
+00330 C185 FE 7F10                                LDX     TEMP 
+00331 C188 BD C0ED                                JSR     OUT2HS 
+00332 C18B FF 7F10                                STX     TEMP 
+00333 C18E CE C774                                LDX     #XREG 
+00334 C191 8D 3C                                  BSR     PDAT 
+00335 C193 FE 7F10                                LDX     TEMP 
+00336 C196 8D 52                                  BSR     PRTS 
+00337 C198 FF 7F10                                STX     TEMP 
+00338 C19B 7D 7F13                                TST     TFLAG 
+00339 C19E 26 0A                                  BNE     PNTS 
+00340 C1A0 CE C77A                                LDX     #PCTR 
+00341 C1A3 8D 2A                                  BSR     PDAT 
+00342 C1A5 FE 7F10                                LDX     TEMP 
+00343 C1A8 8D 40                                  BSR     PRTS 
+00344 C1AA CE C777                PNTS            LDX     #SREG 
+00345 C1AD 8D 20                                  BSR     PDAT 
+00346 C1AF CE 7F0A                                LDX     #SP 
+00347 C1B2 7D 7F13                                TST     TFLAG 
+00348 C1B5 26 22                                  BNE     PRINTS 
+00349 C1B7 8D 31                                  BSR     PRTS 
+00350               ; 
+00351               ; CHECK IF ANY BREAK POINTS ARE SET 
+00352               ; 
+00353 C1B9 B6 7F16                                LDA A   BKFLG 
+00354 C1BC 26 0F                                  BNE     C2 
+00355 C1BE FE 7F65                                LDX     PB2 
+00356 C1C1 A7 00                                  STA A   0,X 
+00357 C1C3 B6 7F6D                                LDA A   BKFLG2 
+00358 C1C6 27 05                                  BEQ     C2 
+00359 C1C8 FE 7F68                                LDX     PC1 
+00360 C1CB A7 00                                  STA A   0,X 
+00361 C1CD 20 1E                  C2              BRA     CR8 
+00362 C1CF 7E C09A                PDAT            JMP     PDATA1 
+00363               ; 
+00364               ; SET ECHO FUNCTION 
+00365               ; 
+00366 C1D2 5F                     ECHON           CLR B 
+00367 C1D3 50                     PRNTON          NEG B 
+00368 C1D4 F7 7F0D                ECHOFF          STA B   ECHO 
+00369 C1D7 20 14                                  BRA     CR8 
+00370               ; 
+00371               ;  PRINT STACK POINTER 
+00372               ; 
+00373 C1D9 E6 00                  PRINTS          LDA B   0,X 
+00374 C1DB A6 01                                  LDA A   1,X 
+00375 C1DD 8B 07                                  ADD A   #7 
+00376 C1DF C9 00                                  ADC B   #0 
+00377 C1E1 F7 7F10                                STA B   TEMP 
+00378 C1E4 B7 7F11                                STA A   TEMP+1 
+00379 C1E7 CE 7F10                                LDX     #TEMP 
+00380 C1EA 7E C0EB                PRTS            JMP     OUT4HS 
+00381               ; 
+00382 C1ED 20 55                  CR8             BRA     IFILL1 
+00383               ; 
+00384               ;     SAVE X REGISTER 
+00385               ; 
+00386 C1EF FF 7F14                SAV             STX     XTEMP 
+00387 C1F2 39                                     RTS 
+00388               ; 
+00389               ;       INPUT ONE CHAR INTO A-REGISTER 
+00390               ; 
+00391 C1F3 8D FA                  INEEE           BSR     SAV 
+00392 C1F5 B6 8018                IN1             LDAA    ACIACS 
+00393 C1F8 47                                     ASRA 
+00394 C1F9 24 FA                                  BCC     IN1              ;RECEIVE NOT READY 
+00395 C1FB B6 8019                                LDAA    ACIADA           ;INPUT CHARACTER 
+00396 C1FE 84 7F                                  ANDA    #$7F             ;RESET PARITY BIT 
+00397 C200 81 7F                                  CMPA    #$7F 
+00398 C202 27 F1                                  BEQ     IN1              ;IF RUBOUT, GET NEXT CHAR 
+00399 C204 7D 7F0D                                TST     ECHO 
+00400 C207 2F 01                                  BLE     OUTEEE 
+00401 C209 39                                     RTS 
+00402               ; 
+00403               ;       OUTPUT ONE CHAR  
+00404               ; 
+00405 C20A 36                     OUTEEE          PSH A 
+00406 C20B B6 8018                OUTEEE1         LDA A   ACIACS 
+00407 C20E 47                                     ASR A 
+00408 C20F 47                                     ASR A 
+00409 C210 24 F9                                  BCC     OUTEEE1 
+00410 C212 32                                     PUL A 
+00411 C213 B7 8019                                STA A   ACIADA 
+00412 C216 39                                     RTS 
+00413               ; 
+00414               ;  HERE ON JUMP COMMAND 
+00415               ; 
+00416 C217 CE C7AC                JUMP            LDX     #TOADD 
+00417 C21A 8D 32                                  BSR     ENDADD+3 
+00418 C21C 8E 7F44                                LDS     #STACK 
+00419 C21F 6E 00                                  JMP     0,X 
+00420               ; 
+00421               ;  ASCII IN "@" COMMAND 
+00422               ; 
+00423 C221 8D 23                  ASCII           BSR     BAD2 
+00424 C223 08                                     INX 
+00425 C224 09                     ASC01           DEX 
+00426 C225 8D CC                  ASC02           BSR     INEEE 
+00427 C227 81 08                                  CMP A   #$8 
+00428 C229 27 F9                                  BEQ     ASC01 
+00429 C22B A7 00                                  STA A   0,X 
+00430 C22D 81 04                                  CMP A   #$4 
+00431 C22F 27 60                                  BEQ     CR9 
+00432 C231 08                                     INX 
+00433 C232 20 F1                                  BRA     ASC02 
+00434               ; 
+00435               ;  FILL MEMORY "I" COMMAND 
+00436               ; 
+00437 C234 8D 1E                  IFILL           BSR     LIMITS 
+00438 C236 8D 2E                                  BSR     VALUE 
+00439 C238 FE 7F04                                LDX     BEGA 
+00440 C23B 09                                     DEX 
+00441 C23C 08                     IFILL2          INX 
+00442 C23D A7 00                                  STA A   0,X 
+00443 C23F BC 7F06                                CPX     ENDA 
+00444 C242 26 F8                                  BNE     IFILL2 
+00445 C244 20 4B                  IFILL1          BRA     CR9 
+00446               ; 
+00447               ;  INPUT DATA SUB ROUTINE 
+00448               ; 
+00449 C246 CE C792                BAD2            LDX     #FROMAD 
+00450 C249 20 03                                  BRA     *+5 
+00451 C24B CE C79F                ENDADD          LDX     #THRUAD 
+00452 C24E BD C09A                                JSR     PDATA1 
+00453 C251 7E C06A                                JMP     BADDR 
+00454 C254 8D F0                  LIMITS          BSR     BAD2 
+00455 C256 FF 7F04                                STX     BEGA 
+00456 C259 8D F0                                  BSR     ENDADD 
+00457 C25B FF 7F06                                STX     ENDA 
+00458 C25E 7E C2C4                                JMP     CRLF 
+00459 C261 FE C788                ADDR            LDX     ADASC 
+00460 C264 20 E8                                  BRA     ENDADD+3 
+00461 C266 CE C7B5                VALUE           LDX     #VALASC 
+00462 C269 BD C09A                                JSR     PDATA1 
+00463 C26C 7E C078                                JMP     BYTE 
+00464               ; 
+00465               ; BLOCK MOVE "M" COMMAND 
+00466               ; 
+00467 C26F 8D E3                  MOVE            BSR     LIMITS 
+00468 C271 CE C7AC                                LDX     #TOADD 
+00469 C274 8D D8                                  BSR     ENDADD+3 
+00470 C276 FE 7F04                                LDX     BEGA 
+00471 C279 09                                     DEX 
+00472 C27A 08                     BMC1            INX 
+00473 C27B A6 00                                  LDA A   0,X 
+00474 C27D FF 7F04                                STX     BEGA 
+00475 C280 FE 7F0E                                LDX     XHI 
+00476 C283 A7 00                                  STA A   0,X 
+00477 C285 08                                     INX 
+00478 C286 FF 7F0E                                STX     XHI 
+00479 C289 FE 7F04                                LDX     BEGA 
+00480 C28C BC 7F06                                CPX     ENDA 
+00481 C28F 26 E9                                  BNE     BMC1 
+00482 C291 7E C01F                CR9             JMP     CONTRL 
+00483               ; 
+00484               ;  SEARCH MEMORY "S" COMMAND 
+00485               ; 
+00486 C294 8D BE                  FIND            BSR     LIMITS 
+00487 C296 8D CE                                  BSR     VALUE 
+00488 C298 16                                     TAB 
+00489 C299 FE 7F04                                LDX     BEGA 
+00490 C29C 09                                     DEX 
+00491 C29D 08                     SMC1            INX 
+00492 C29E A6 00                                  LDA A   0,X 
+00493 C2A0 11                                     CBA 
+00494 C2A1 26 08                                  BNE     SMC2 
+00495 C2A3 FF 7F0E                                STX     XHI 
+00496 C2A6 8D 1C                                  BSR     CRLF 
+00497 C2A8 BD C11C                                JSR     OUTXHI 
+00498 C2AB BC 7F06                SMC2            CPX     ENDA 
+00499 C2AE 26 ED                                  BNE     SMC1 
+00500 C2B0 20 DF                                  BRA     CR9 
+00501               ; 
+00502               ;  SUB ROUTINE TO ADD SPACE 
+00503               ; 
+00504 C2B2 86 20                  SKIP            LDA A   #$20 
+00505 C2B4 BD C20A                                JSR     OUTEEE 
+00506 C2B7 5A                                     DEC B 
+00507 C2B8 26 F8                                  BNE     SKIP 
+00508 C2BA 39                                     RTS 
+00509               ; 
+00510               ;  PRINT BYTE IN A REGISTER 
+00511               ; 
+00512 C2BB B7 7F67                PNTBYT          STA A   BYTECT 
+00513 C2BE CE 7F67                                LDX     #BYTECT 
+00514 C2C1 7E C0E2                                JMP     OUT2H 
+00515               ; 
+00516               ;  CARRIAGE RETURN NON PROMPT 
+00517               ; 
+00518 C2C4 CE C784                CRLF            LDX     #CRLFAS 
+00519 C2C7 7E C09A                                JMP     PDATA1 
+00520               ; 
+00521               ;  DISASSEMBLE "D" COMMAND 
+00522               ; 
+00523 C2CA BD C246                DISSA           JSR     BAD2 
+00524 C2CD 20 1D                                  BRA     DISS 
+00525               ; 
+00526               ;  TRACE COMMAND "T" 
+00527               ; 
+00528 C2CF BD C246                TRACE           JSR     BAD2 
+00529 C2D2 8D F0                                  BSR     CRLF 
+00530 C2D4 FE 7F0A                                LDX     SP 
+00531 C2D7 F6 7F0E                                LDA B   XHI 
+00532 C2DA E7 06                                  STA B   6,X 
+00533 C2DC B6 7F0F                                LDA A   XLOW 
+00534 C2DF A7 07                                  STA A   7,X 
+00535 C2E1 7C 7F13                KONTIN          INC     TFLAG 
+00536 C2E4 BD C151                RETURN          JSR     PRINT 
+00537 C2E7 FE 7F0A                                LDX     SP 
+00538 C2EA EE 06                                  LDX     6,X 
+00539 C2EC FF 7F68                DISS            STX     PC1 
+00540 C2EF 8D D3                  DISIN           BSR     CRLF 
+00541 C2F1 CE 7F68                                LDX     #PC1 
+00542 C2F4 BD C0EB                                JSR     OUT4HS 
+00543 C2F7 CE 7F4F                                LDX     #BFLAG 
+00544 C2FA 86 05                                  LDA A   #5 
+00545 C2FC 6F 00                  CLEAR           CLR     0,X 
+00546 C2FE 08                                     INX 
+00547 C2FF 4A                                     DEC A 
+00548 C300 26 FA                                  BNE     CLEAR 
+00549 C302 FE 7F68                                LDX     PC1 
+00550 C305 E6 00                                  LDA B   0,X 
+00551 C307 BD C0ED                                JSR     OUT2HS 
+00552 C30A FF 7F68                                STX     PC1 
+00553 C30D A6 00                                  LDA A   0,X 
+00554 C30F B7 7F65                                STA A   PB2 
+00555 C312 A6 01                                  LDA A   1,X 
+00556 C314 B7 7F66                                STA A   PB3 
+00557 C317 F7 7F64                                STA B   PB1 
+00558 C31A 17                                     TBA 
+00559 C31B BD C518                                JSR     TBLKUP 
+00560 C31E B6 7F10                                LDA A   TEMP 
+00561 C321 81 2A                                  CMP A   #$2A 
+00562 C323 26 03                                  BNE     OKOP 
+00563 C325 7E C3E9                                JMP     NOTBB 
+00564 C328 B6 7F64                OKOP            LDA A   PB1 
+00565 C32B 81 8D                                  CMP A   #$8D 
+00566 C32D 26 05                                  BNE     NEXT 
+00567 C32F 7C 7F4F                                INC     BFLAG 
+00568 C332 20 2D                                  BRA     PUT1 
+00569 C334 84 F0                  NEXT            AND A   #$F0 
+00570 C336 81 60                                  CMP A   #$60 
+00571 C338 27 18                                  BEQ     ISX 
+00572 C33A 81 A0                                  CMP A   #$A0 
+00573 C33C 27 14                                  BEQ     ISX 
+00574 C33E 81 E0                                  CMP A   #$E0 
+00575 C340 27 10                                  BEQ     ISX 
+00576 C342 81 80                                  CMP A   #$80 
+00577 C344 27 04                                  BEQ     IMM 
+00578 C346 81 C0                                  CMP A   #$C0 
+00579 C348 26 17                                  BNE     PUT1 
+00580 C34A 7C 7F50                IMM             INC     MFLAG 
+00581 C34D CE C755                                LDX     #SPLBD0 
+00582 C350 20 0C                                  BRA     PUT 
+00583 C352 7C 7F51                ISX             INC     XFLAG 
+00584 C355 B6 7F65                                LDA A   PB2 
+00585 C358 BD C2BB                                JSR     PNTBYT 
+00586 C35B CE C758                                LDX     #COMMX 
+00587 C35E BD C09A                PUT             JSR     PDATA1 
+00588 C361 FE 7F68                PUT1            LDX     PC1 
+00589 C364 B6 7F64                                LDA A   PB1 
+00590 C367 81 8C                                  CMP A   #$8C 
+00591 C369 27 1D                                  BEQ     BYT3 
+00592 C36B 81 8E                                  CMP A   #$8E 
+00593 C36D 27 19                                  BEQ     BYT3 
+00594 C36F 81 CE                                  CMP A   #$CE 
+00595 C371 27 15                                  BEQ     BYT3 
+00596 C373 84 F0                                  AND A   #$F0 
+00597 C375 81 20                                  CMP A   #$20 
+00598 C377 26 05                                  BNE     NOTB 
+00599 C379 7C 7F4F                                INC     BFLAG 
+00600 C37C 20 25                                  BRA     BYT2 
+00601 C37E 81 60                  NOTB            CMP A   #$60 
+00602 C380 25 43                                  BCS     BYT1 
+00603 C382 84 30                                  AND A   #$30 
+00604 C384 81 30                                  CMP A   #$30 
+00605 C386 26 1B                                  BNE     BYT2 
+00606 C388 7C 7F53                BYT3            INC     BITE3 
+00607 C38B 7D 7F50                                TST     MFLAG 
+00608 C38E 26 05                                  BNE     BYT31 
+00609 C390 86 24                                  LDA A   #$24 
+00610 C392 BD C20A                                JSR     OUTEEE 
+00611 C395 A6 00                  BYT31           LDA A   0,X 
+00612 C397 08                                     INX 
+00613 C398 FF 7F68                                STX     PC1 
+00614 C39B BD C2BB                                JSR     PNTBYT 
+00615 C39E FE 7F68                                LDX     PC1 
+00616 C3A1 20 03                                  BRA     BYT21 
+00617 C3A3 7C 7F52                BYT2            INC     BITE2 
+00618 C3A6 A6 00                  BYT21           LDA A   0,X 
+00619 C3A8 08                                     INX 
+00620 C3A9 FF 7F68                                STX     PC1 
+00621 C3AC 7D 7F51                                TST     XFLAG 
+00622 C3AF 26 14                                  BNE     BYT1 
+00623 C3B1 7D 7F53                                TST     BITE3 
+00624 C3B4 26 0C                                  BNE     BYT22 
+00625 C3B6 7D 7F50                                TST     MFLAG 
+00626 C3B9 26 07                                  BNE     BYT22 
+00627 C3BB 16                                     TAB 
+00628 C3BC 86 24                                  LDA A   #$24 
+00629 C3BE BD C20A                                JSR     OUTEEE 
+00630 C3C1 17                                     TBA 
+00631 C3C2 BD C2BB                BYT22           JSR     PNTBYT 
+00632 C3C5 7D 7F4F                BYT1            TST     BFLAG 
+00633 C3C8 27 1F                                  BEQ     NOTBB 
+00634 C3CA C6 03                                  LDA B   #3 
+00635 C3CC BD C2B2                                JSR     SKIP 
+00636 C3CF 4F                                     CLR A 
+00637 C3D0 F6 7F65                                LDA B   PB2 
+00638 C3D3 2C 02                                  BGE     DPOS 
+00639 C3D5 86 FF                                  LDA A   #$FF 
+00640 C3D7 FB 7F69                DPOS            ADD B   PC2 
+00641 C3DA B9 7F68                                ADC A   PC1 
+00642 C3DD B7 7F6A                                STA A   BPOINT 
+00643 C3E0 F7 7F6B                                STA B   BPOINT+1 
+00644 C3E3 CE 7F6A                                LDX     #BPOINT 
+00645 C3E6 BD C0EB                                JSR     OUT4HS 
+00646               ; 
+00647               ; PRINT ASCII VALUE OF INST 
+00648               ; 
+00649 C3E9 C6 0D                  NOTBB           LDA B   #$D 
+00650 C3EB 86 01                                  LDA A   #1 
+00651 C3ED 7D 7F52                                TST     BITE2 
+00652 C3F0 27 19                                  BEQ     PAVOI3 
+00653 C3F2 C6 01                                  LDA B   #1 
+00654 C3F4 7D 7F4F                                TST     BFLAG 
+00655 C3F7 26 0E                                  BNE     PAVOI2 
+00656 C3F9 C6 08                                  LDA B   #8 
+00657 C3FB 7D 7F50                                TST     MFLAG 
+00658 C3FE 26 07                                  BNE     PAVOI2 
+00659 C400 7D 7F50                                TST     MFLAG 
+00660 C403 26 02                                  BNE     PAVOI2 
+00661 C405 C6 09                                  LDA B   #9 
+00662 C407 86 02                  PAVOI2          LDA A   #2 
+00663 C409 20 10                                  BRA     PAVOI8 
+00664               ; 
+00665 C40B 7D 7F53                PAVOI3          TST     BITE3 
+00666 C40E 27 0B                                  BEQ     PAVOI8 
+00667 C410 86 03                                  LDA A   #3 
+00668 C412 C6 06                                  LDA B   #6 
+00669 C414 7D 7F50                                TST     MFLAG 
+00670 C417 27 02                                  BEQ     PAVOI8 
+00671 C419 C6 05                                  LDA B   #5 
+00672 C41B 36                     PAVOI8          PSH A 
+00673 C41C BD C2B2                                JSR     SKIP 
+00674 C41F 33                                     PUL B 
+00675 C420 CE 7F64                                LDX     #PB1 
+00676 C423 A6 00                  PAVOI4          LDA A   0,X 
+00677 C425 81 20                                  CMP A   #$20 
+00678 C427 2F 04                                  BLE     PAVOI5 
+00679 C429 81 60                                  CMP A   #$60 
+00680 C42B 2F 02                                  BLE     PAVOI9 
+00681 C42D 86 2E                  PAVOI5          LDA A   #$2E 
+00682 C42F 08                     PAVOI9          INX 
+00683 C430 BD C20A                                JSR     OUTEEE 
+00684 C433 5A                                     DEC B 
+00685 C434 26 ED                                  BNE     PAVOI4 
+00686 C436 BD C1F3                NOT1            JSR     INEEE 
+00687 C439 16                                     TAB 
+00688 C43A BD C0EF                                JSR     OUTS 
+00689 C43D C1 20                                  CMP B   #$20 
+00690 C43F 27 34                                  BEQ     DOT 
+00691               ; 
+00692               ;  CHECK INPUT COMMAND 
+00693               ;  A, B, C, X, OR S 
+00694               ; 
+00695 C441 FE 7F0A                CKCBA           LDX     SP 
+00696 C444 08                                     INX 
+00697 C445 C1 43                                  CMP B   #$43 
+00698 C447 27 1C                                  BEQ     RDC 
+00699 C449 08                                     INX 
+00700 C44A C1 42                                  CMP B   #$42 
+00701 C44C 27 17                                  BEQ     RDC 
+00702 C44E 08                                     INX 
+00703 C44F C1 41                                  CMP B   #$41 
+00704 C451 27 12                                  BEQ     RDC 
+00705 C453 08                                     INX 
+00706 C454 C1 58                                  CMP B   #$58 
+00707 C456 27 07                                  BEQ     RDX 
+00708 C458 CE 7F0A                                LDX     #SP 
+00709 C45B C1 53                                  CMP B   #$53 
+00710 C45D 26 13                                  BNE     RETNOT 
+00711 C45F BD C078                RDX             JSR     BYTE 
+00712 C462 A7 00                                  STA A   0,X 
+00713 C464 08                                     INX 
+00714 C465 BD C078                RDC             JSR     BYTE 
+00715 C468 A7 00                                  STA A   0,X 
+00716 C46A BD C2C4                                JSR     CRLF 
+00717 C46D BD C151                                JSR     PRINT 
+00718               ; 
+00719               ;  WILL RETURN HERE IN TRACE 
+00720               ; 
+00721 C470 20 C4                                  BRA     NOT1 
+00722 C472 7E C01F                RETNOT          JMP     CONTRL 
+00723 C475 7D 7F13                DOT             TST     TFLAG 
+00724 C478 26 03                                  BNE     DOT1 
+00725 C47A 7E C2EF                                JMP     DISIN 
+00726               ; 
+00727 C47D C6 3F                  DOT1            LDA B   #$3F 
+00728 C47F B6 7F64                                LDA A   PB1 
+00729 C482 81 8D                                  CMP A   #$8D 
+00730 C484 26 09                                  BNE     TSTB 
+00731 C486 FE 7F6A                                LDX     BPOINT 
+00732 C489 FF 7F68                                STX     PC1 
+00733 C48C 7F 7F4F                                CLR     BFLAG 
+00734 C48F 7D 7F4F                TSTB            TST     BFLAG 
+00735 C492 27 0C                                  BEQ     TSTJ 
+00736 C494 FE 7F6A                                LDX     BPOINT 
+00737 C497 A6 00                                  LDA A   0,X 
+00738 C499 B7 7F6C                                STA A   BPOINT+2 
+00739 C49C E7 00                                  STA B   0,X 
+00740 C49E 20 48                                  BRA     EXEC 
+00741               ; 
+00742 C4A0 81 6E                  TSTJ            CMP A   #$6E 
+00743 C4A2 27 14                                  BEQ     ISXD 
+00744 C4A4 81 AD                                  CMP A   #$AD 
+00745 C4A6 27 10                                  BEQ     ISXD 
+00746 C4A8 81 7E                                  CMP A   #$7E 
+00747 C4AA 27 04                                  BEQ     ISJ 
+00748 C4AC 81 BD                                  CMP A   #$BD 
+00749 C4AE 26 1C                                  BNE     NOTJ 
+00750 C4B0 FE 7F65                ISJ             LDX     PB2 
+00751 C4B3 FF 7F68                                STX     PC1 
+00752 C4B6 20 30                                  BRA     EXEC 
+00753 C4B8 FE 7F0A                ISXD            LDX     SP 
+00754 C4BB A6 05                                  LDA A   5,X 
+00755 C4BD BB 7F65                                ADD A   PB2 
+00756 C4C0 B7 7F69                                STA A   PC2 
+00757 C4C3 A6 04                                  LDA A   4,X 
+00758 C4C5 89 00                                  ADC A   #0 
+00759 C4C7 B7 7F68                                STA A   PC1 
+00760 C4CA 20 1C                                  BRA     EXEC 
+00761               ; 
+00762 C4CC FE 7F0A                NOTJ            LDX     SP 
+00763 C4CF 81 39                                  CMP A   #$39 
+00764 C4D1 26 04                                  BNE     NOTRTS 
+00765 C4D3 EE 08                  NOTJ1           LDX     8,X 
+00766 C4D5 20 06                                  BRA     EXR 
+00767               ; 
+00768 C4D7 81 38                  NOTRTS          CMP A   #$3B 
+00769 C4D9 26 05                                  BNE     NOTRTI 
+00770 C4DB EE 0D                                  LDX     13,X 
+00771 C4DD FF 7F68                EXR             STX     PC1 
+00772 C4E0 81 3F                  NOTRTI          CMP A   #$3F 
+00773 C4E2 27 15                                  BEQ     NONO 
+00774 C4E4 81 3E                                  CMP A   #$3E 
+00775 C4E6 27 11                                  BEQ     NONO 
+00776               ; 
+00777 C4E8 FE 7F68                EXEC            LDX     PC1 
+00778 C4EB A6 00                                  LDA A   0,X 
+00779 C4ED B7 7F63                                STA A   OPSAVE 
+00780 C4F0 E7 00                                  STA B   0,X 
+00781 C4F2 E1 00                                  CMP B   0,X 
+00782 C4F4 26 06                                  BNE     CKROM 
+00783 C4F6 7E C118                                JMP     CONTG 
+00784               ; 
+00785 C4F9 7E C064                NONO            JMP     LOAD19 
+00786               ; 
+00787 C4FC B6 7F68                CKROM           LDA A   PC1 
+00788 C4FF 81 E0                                  CMP A   #$E0 
+00789 C501 25 F6                                  BCS     NONO 
+00790               ; 
+00791               ;  GET JSR OR JMP 
+00792               ; 
+00793 C503 FE 7F0A                                LDX     SP 
+00794 C506 B6 7F64                                LDA A   PB1 
+00795 C509 81 7E                                  CMP A   #$7E 
+00796 C50B 27 C6                                  BEQ     NOTJ1 
+00797 C50D 81 BD                                  CMP A   #$BD 
+00798 C50F 26 E8                                  BNE     NONO 
+00799 C511 EE 06                                  LDX     6,X 
+00800 C513 08                                     INX 
+00801 C514 08                                     INX 
+00802 C515 08                                     INX 
+00803 C516 20 9B                                  BRA     ISJ+3 
+00804               ; 
+00805               ;  OP CODES LOOKUP  
+00806               ; 
+00807 C518 81 40                  TBLKUP          CMP A   #$40 
+00808 C51A 24 22                                  BCC     IMLR6 
+00809 C51C BD C5AC                IMLR1           JSR     PNT3C 
+00810 C51F B6 7F64                                LDA A   PB1 
+00811 C522 81 32                                  CMP A   #$32 
+00812 C524 27 0D                                  BEQ     IMLR3 
+00813 C526 81 33                                  CMP A   #$33 
+00814 C528 27 0E                                  BEQ     IMLR4 
+00815 C52A 81 37                                  CMP A   #$37 
+00816 C52C 27 0A                                  BEQ     IMLR4 
+00817 C52E CE C75B                IMLR2           LDX     #BLANK 
+00818 C531 20 08                                  BRA     IMLR5 
+00819               ; 
+00820 C533 CE C75F                IMLR3           LDX     #PNTA 
+00821 C536 20 03                                  BRA     IMLR5 
+00822               ; 
+00823 C538 CE C763                IMLR4           LDX     #PNTB 
+00824 C53B 7E C09A                IMLR5           JMP     PDATA1 
+00825 C53E 81 4E                  IMLR6           CMP A   #$4E 
+00826 C540 27 04                                  BEQ     IMLR7 
+00827 C542 81 5E                                  CMP A   #$5E 
+00828 C544 26 03                                  BNE     IMLR8 
+00829               ; 
+00830 C546 4F                     IMLR7           CLR A 
+00831 C547 20 D3                                  BRA     IMLR1 
+00832               ; 
+00833 C549 81 80                  IMLR8           CMP A   #$80 
+00834 C54B 24 19                                  BCC     IMLR9 
+00835 C54D 84 4F                                  AND A   #$4F 
+00836 C54F BD C5AC                                JSR     PNT3C 
+00837 C552 B6 7F10                                LDA A   TEMP 
+00838 C555 81 2A                                  CMP A   #$2A 
+00839 C557 27 D5                                  BEQ     IMLR2 
+00840 C559 B6 7F64                                LDA A   PB1 
+00841 C55C 81 60                                  CMP A   #$60 
+00842 C55E 24 CE                                  BCC     IMLR2 
+00843 C560 84 10                                  AND A   #$10 
+00844 C562 27 CF                                  BEQ     IMLR3 
+00845 C564 20 D2                                  BRA     IMLR4 
+00846               ; 
+00847 C566 84 3F                  IMLR9           AND A   #$3F 
+00848 C568 81 0F                                  CMP A   #$F 
+00849 C56A 27 DA                                  BEQ     IMLR7 
+00850 C56C 81 07                                  CMP A   #$7 
+00851 C56E 27 D6                                  BEQ     IMLR7 
+00852 C570 84 0F                                  AND A   #$F 
+00853 C572 81 03                                  CMP A   #$3 
+00854 C574 27 D0                                  BEQ     IMLR7 
+00855 C576 81 0C                                  CMP A   #$C 
+00856 C578 2C 0E                                  BGE     IMLR10 
+00857 C57A 8B 50                                  ADD A   #$50 
+00858 C57C BD C5AC                                JSR     PNT3C 
+00859 C57F B6 7F64                                LDA A   PB1 
+00860 C582 84 40                                  AND A   #$40 
+00861 C584 27 AD                                  BEQ     IMLR3 
+00862 C586 20 B0                                  BRA     IMLR4 
+00863               ; 
+00864 C588 B6 7F64                IMLR10          LDA A   PB1 
+00865 C58B 81 8D                                  CMP A   #$8D 
+00866 C58D 26 04                                  BNE     IMLR11 
+00867 C58F 86 53                                  LDA A   #$53 
+00868 C591 20 89                                  BRA     IMLR1 
+00869               ; 
+00870 C593 81 C0                  IMLR11          CMP A   #$C0 
+00871 C595 24 0A                                  BCC     IMLR12 
+00872 C597 81 9D                                  CMP A   #$9D 
+00873 C599 27 AB                                  BEQ     IMLR7 
+00874 C59B 84 0F                                  AND A   #$F 
+00875 C59D 8B 50                                  ADD A   #$50 
+00876 C59F 20 08                                  BRA     IMLR13 
+00877               ; 
+00878 C5A1 84 0F                  IMLR12          AND A   #$F 
+00879 C5A3 8B 52                                  ADD A   #$52 
+00880 C5A5 81 60                                  CMP A   #$60 
+00881 C5A7 2D 9D                                  BLT     IMLR7 
+00882               ; 
+00883 C5A9 7E C51C                IMLR13          JMP     IMLR1 
+00884               ; 
+00885 C5AC 5F                     PNT3C           CLR B 
+00886 C5AD B7 7F10                                STA A   TEMP 
+00887 C5B0 48                                     ASL A 
+00888 C5B1 BB 7F10                                ADD A   TEMP 
+00889 C5B4 C9 00                                  ADC B   #$0 
+00890 C5B6 CE C62F                                LDX     #TBL 
+00891 C5B9 FF 7F14                                STX     XTEMP 
+00892 C5BC BB 7F15                                ADD A   XTEMP+1 
+00893 C5BF F9 7F14                                ADC B   XTEMP 
+00894 C5C2 F7 7F14                                STA B   XTEMP 
+00895 C5C5 B7 7F15                                STA A   XTEMP+1 
+00896 C5C8 FE 7F14                                LDX     XTEMP 
+00897 C5CB A6 00                                  LDA A   0,X 
+00898 C5CD B7 7F10                                STA A   TEMP 
+00899 C5D0 8D 06                                  BSR     OUTA 
+00900 C5D2 A6 01                                  LDA A   1,X 
+00901 C5D4 8D 02                                  BSR     OUTA 
+00902 C5D6 A6 02                                  LDA A   2,X 
+00903               ; 
+00904 C5D8 7E C20A                OUTA            JMP     OUTEEE 
+00905               ; 
+00906               ;  "V" COMMAND 
+00907               ; 
+00908 C5DB BD C246                VIEW            JSR     BAD2 
+00909 C5DE 86 08                  VCOM1           LDA A   #8 
+00910 C5E0 B7 7F6E                                STA A   MCONT 
+00911 C5E3 BD C2C4                VCOM5           JSR     CRLF 
+00912 C5E6 BD C11C                                JSR     OUTXHI 
+00913 C5E9 C6 10                                  LDA B   #$10 
+00914 C5EB BD C0ED                VCOM9           JSR     OUT2HS 
+00915 C5EE 5A                                     DEC B 
+00916 C5EF C5 03                                  BIT B   #3 
+00917 C5F1 26 05                                  BNE     VCOM10 
+00918 C5F3 BD C0EF                                JSR     OUTS 
+00919 C5F6 C1 00                                  CMP B   #$0 
+00920 C5F8 26 F1                  VCOM10          BNE     VCOM9 
+00921 C5FA BD C2C4                                JSR     CRLF 
+00922 C5FD C6 05                                  LDA B   #$5 
+00923 C5FF BD C2B2                                JSR     SKIP 
+00924 C602 FE 7F0E                                LDX     XHI 
+00925 C605 C6 10                                  LDA B   #$10 
+00926 C607 A6 00                  VCOM2           LDA A   0,X 
+00927 C609 81 20                                  CMP A   #$20 
+00928 C60B 25 04                                  BCS     VCOM3 
+00929 C60D 81 5F                                  CMP A   #$5F 
+00930 C60F 25 02                                  BCS     VCOM4 
+00931 C611 86 2E                  VCOM3           LDA A   #$2E 
+00932 C613 8D C3                  VCOM4           BSR     OUTA 
+00933 C615 08                                     INX 
+00934 C616 5A                                     DEC B 
+00935 C617 26 EE                                  BNE     VCOM2 
+00936 C619 FF 7F0E                                STX     XHI 
+00937 C61C 7A 7F6E                                DEC     MCONT 
+00938 C61F 26 C2                                  BNE     VCOM5 
+00939 C621 BD C1F3                                JSR     INEEE 
+00940 C624 81 20                                  CMP A   #$20 
+00941 C626 27 B6                                  BEQ     VCOM1 
+00942 C628 81 56                                  CMP A   #$56 
+00943 C62A 27 AF                                  BEQ     VIEW 
+00944 C62C 7E C01F                                JMP     CONTRL 
+00945               ; 
+00946               ; MNKEMONIC TABLE 
+00947               ; 
+00948 C62F    2A 2A 2A 4E 4F 50   TBL             FCC     "***NOPNOP***" 
+00949 C63B    2A 2A 2A 2A 2A 2A                   FCC     "******TAPTPA" 
+00950 C647    49 4E 58 44 45 58                   FCC     "INXDEXCLVSEV" 
+00951 C653    43 4C 43 53 45 43                   FCC     "CLCSECCLISEI" 
+00952 C65F    53 42 41 43 42 41                   FCC     "SBACBA******" 
+00953 C66B    2A 2A 2A 2A 2A 2A                   FCC     "******TABTBA" 
+00954 C677    2A 2A 2A 44 41 41                   FCC     "***DAA***ABA" 
+00955 C683    2A 2A 2A 2A 2A 2A                   FCC     "************" 
+00956 C68F    42 52 41 2A 2A 2A                   FCC     "BRA***BHIBLS" 
+00957 C69B    42 43 43 42 43 53                   FCC     "BCCBCSBNEBEQ" 
+00958 C6A7    42 56 43 42 56 53                   FCC     "BVCBVSBPLBMI" 
+00959 C6B3    42 47 45 42 4C 54                   FCC     "BGEBLTBGTBLE" 
+00960 C6BF    54 53 58 49 4E 53                   FCC     "TSXINSPULPUL" 
+00961 C6CB    44 45 53 54 58 53                   FCC     "DESTXSPSHPSH" 
+00962 C6D7    2A 2A 2A 52 54 53                   FCC     "***RTS***RTI" 
+00963 C6E3    2A 2A 2A 2A 2A 2A                   FCC     "******WAISWI" 
+00964 C6EF    4E 45 47 2A 2A 2A                   FCC     "NEG******COM" 
+00965 C6FB    4C 53 52 2A 2A 2A                   FCC     "LSR***RORASR" 
+00966 C707    41 53 4C 52 4F 4C                   FCC     "ASLROLDEC***" 
+00967 C713    49 4E 43 54 53 54                   FCC     "INCTSTJMPCLR" 
+00968 C71F    53 55 42 43 4D 50                   FCC     "SUBCMPSBCBSR" 
+00969 C72B    41 4E 44 42 49 54                   FCC     "ANDBITLDASTA" 
+00970 C737    45 4F 52 41 44 43                   FCC     "EORADCORAADD" 
+00971 C743    43 50 58 4A 53 52                   FCC     "CPXJSRLDSSTS" 
+00972 C74F    4C 44 58 53 54 58                   FCC     "LDXSTX" 
+00973 C755    23 24               SPLBD0          FCC     "#$" 
+00974 C757    04                                  FCB     $4 
+00975 C758    2C 58 04            COMMX           FCB     $2C,$58,$04 
+00976 C75B    20 20 20            BLANK           FCB     $20,$20,$20 
+00977 C75E    04                                  FCB     $04 
+00978 C75F    20 41 20            PNTA            FCC     " A " 
+00979 C762    04                                  FCB     $04 
+00980 C763    20 42 20            PNTB            FCC     " B " 
+00981 C766    04                                  FCB     $04 
+00982 C767    0D 0A 15 13 3E 04   MCL             FCB     $D,$A,$15,$13,$3E,$04 
+00983 C76D    20 42 3D 04         BREG            FCB     $20,$42,$3D,$04 
+00984 C771    41 3D 04            AREG            FCB     $41,$3D,$04 
+00985 C774    58 3D 04            XREG            FCB     $58,$3D,$04 
+00986 C777    53 3D 04            SREG            FCB     $53,$3D,$04      ;<-- was FCC 
+00987 C77A    50 43 3D 04         PCTR            FCB     $50,$43,$3D,$04  ;<-- was FCC 
+00988 C77E    48 49 4E 5A 56 43   CSET            FCB     $48,$49,$4E,$5A,$56,$43 
+00989 C784    0D 0A 15 04         CRLFAS          FCB     $0D,$0A,$15,$04 
+00990 C788    0D 0A               ADASC           FCB     $0D,$0A 
+00991 C78A    42 4B 41 44 44 52                   FCB     $42,$4B,$41,$44,$44,$52,$20,$04 
+00992 C792    0D 0A 46 52 4F 4D   FROMAD          FCB     $0D,$0A,$46,$52,$4F,$4D,$20 
+00993 C799    41 44 44 52 20 04                   FCB     $41,$44,$44,$52,$20,$04 
+00994 C79F    0D 0A 54 48 52 55   THRUAD          FCB     $0D,$0A,$54,$48,$52,$55,$20,$41 
+00995 C7A7    44 44 52 20 04                      FCB     $44,$44,$52,$20,$04 
+00996 C7AC    54 4F 20 41 44 44   TOADD           FCB     $54,$4F,$20,$41,$44,$44,$52,$20,$04 
+00997 C7B5    56 41 4C 55 45 20   VALASC          FCB     $56,$41,$4C,$55,$45,$20,$04 
+00998               ; 
+00999               ;   CONNAND JUMP TABLE 
+01000               ; 
+01001 C7BC    4D                  FUTABL          FCC     "M" 
+01002 C7BD    C26F                                FDB     MOVE 
+01003 C7BF    45                                  FCC     "E" 
+01004 C7C0    C0A1                                FDB     CHANGE 
+01005 C7C2    47                                  FCC     "G" 
+01006 C7C3    C118                                FDB     CONTG 
+01007 C7C5    52                                  FCC     "R" 
+01008 C7C6    C151                                FDB     PRINT 
+01009 C7C8    54                                  FCC     "T" 
+01010 C7C9    C2CF                                FDB     TRACE 
+01011 C7CB    40                                  FCC     "@" 
+01012 C7CC    C221                                FDB     ASCII 
+01013 C7CE    48                                  FCC     "H" 
+01014 C7CF    C1D3                                FDB     PRNTON 
+01015 C7D1    56                                  FCC     "V" 
+01016 C7D2    C5DB                                FDB     VIEW 
+01017 C7D4    49                                  FCC     "I" 
+01018 C7D5    C234                                FDB     IFILL 
+01019 C7D7    4A                                  FCC     "J" 
+01020 C7D8    C217                                FDB     JUMP 
+01021 C7DA    46                                  FCC     "F" 
+01022 C7DB    C294                                FDB     FIND 
+01023 C7DD    51                                  FCC     "Q" 
+01024 C7DE    8020                                FDB     $8020 
+01025 C7E0    44                                  FCC     "D" 
+01026 C7E1    C2CA                                FDB     DISSA 
+01027 C7E3    4B                                  FCC     "K" 
+01028 C7E4    C2E1                                FDB     KONTIN 
+01029 C7E6    31                                  FCC     "1" 
+01030 C7E7    C104                                FDB     BKPNT 
+01031 C7E9    32                                  FCC     "2" 
+01032 C7EA    C0F3                                FDB     BKPNT2 
+01033 C7EC    26                                  FCC     "&" 
+01034 C7ED    C822                                FDB     SLOAD 
+01035 C7EF    2A                                  FCC     "*" 
+01036 C7F0    F800                                FDB     $F800 
+01037 C7F2    4F                                  FCC     "O" 
+01038 C7F3    C1D2                                FDB     ECHON 
+01039 C7F5    4E                                  FCC     "N" 
+01040 C7F6    C1D4                                FDB     ECHOFF 
+01041         C7F8                TBLEND          EQU     * 
+01042               ; 
+01043               ; 
+01044               ;       MOTOROLA "S" LOADER PROGRAMME "S1" STARTS LOAD 
+01045               ;       END OF LOAD "S9" RUN START END PLUS ADDRESS 
+01046               ; 
+01047               ;       "S" LOADER PROGRAMME START 
+01048               ; 
+01049 C7F8    54 68 69 73 20 53   S1STRING        FCC     "This S1 load has entered system scratch area" 
+01050 C81F    0D 0A 04                            FCB     $0D,$0A,$04 
+01051               ; 
+01052         C822                SLOAD           EQU     * 
+01053 C822 36                                     PSHA                     ; Save A register 
+01054 C823 FF 7F6F                                STX     TEMPX1           ; Save X register 
+01055 C826 8D 7E                  GOAGAIN         BSR     GETCHAR          ; Get first character from ACIA 
+01056 C828 81 53                                  CMPA    #$53             ; Is it "S" 
+01057 C82A 26 FA                                  BNE     GOAGAIN          ; If not go read again 
+01058 C82C 8D 78                                  BSR     GETCHAR          ; Get second character in frame 
+01059 C82E 81 39                                  CMPA    #$39             ; Is it "9" 
+01060 C830 27 33                                  BEQ     RECOVER          ; If "9" go and end read 
+01061 C832 81 31                                  CMPA    #$31             ; Is it a "1" 
+01062 C834 26 F0                                  BNE     GOAGAIN          ; If no then go start again 
+01063 C836 7F 7F74                                CLR     TEMPA            ; Clear Frame length 
+01064 C839 8D 3F                                  BSR     GETHEX           ; Get frame length from input stream 
+01065 C83B 80 02                                  SUBA    #$02             ; Subtract the checksum 
+01066 C83D B7 7F73                                STAA    BYTESTORE        ; Save frame length 
+01067 C840 8D 2A                                  BSR     GETADD           ; Read next two bytes for dest address 
+01068 C842 8D 36                  GETCOUNT        BSR     GETHEX           ; Get the byte number 
+01069 C844 7A 7F73                                DEC     BYTESTORE        ; decrement counter 
+01070 C847 27 12                                  BEQ     INCOUNT          ; If zero go to increment byte count 
+01071 C849 A7 00                                  STAA    0,X              ; Store read byte into memory 
+01072 C84B A1 00                                  CMPA    0,X              ; Test if RAM OK 
+01073 C84D 26 11                                  BNE     QUESTION         ; If write failed send Question and abort 
+01074 C84F 08                                     INX                      ; Increment address pointer 
+01076 C850 2E 02                                  BGT     S1EXIT           ; Abort if close to system scratch 
+01077 C852 20 EE                                  BRA     GETCOUNT         ; go get another byte 
+01078               ; 
+01079 C854 CE C7F8                S1EXIT          LDX     #S1STRING        ; Protect System Scratch Abort S1 
+01080 C857 8D 68                                  BSR     OUTSTR           ; Print abort string 
+01081 C859 20 0A                                  BRA     RECOVER          ; Back to console prompt 
+01082               ; 
+01083 C85B 7C 7F74                INCOUNT         INC     TEMPA            ; Increment tempa 
+01084 C85E 27 C6                                  BEQ     GOAGAIN          ; If zero go for another frame 
+01085 C860 86 3F                  QUESTION        LDAA    #$3F             ; Load question mark 
+01086 C862 BD C8B4                                JSR     OUTPUTA          ; Send to console 
+01087 C865 FE 7F6F                RECOVER         LDX     TEMPX1           ; Restore "X" 
+01088 C868 32                                     PULA                     ; Restore A 
+01089 C869 7E C01F                                JMP     CONTRL           ; Jump to exit 
+01090               ;  
+01091               ; 
+01092 C86C 8D 0C                  GETADD          BSR     GETHEX           ; Read in byte 
+01093 C86E B7 7F71                                STAA    ADDRESS          ; store in first part of address 
+01094 C871 8D 07                                  BSR     GETHEX           ; Get another byte of data 
+01095 C873 B7 7F72                                STAA    ADDRESS1         ; store in second address register 
+01096 C876 FE 7F71                                LDX     ADDRESS          ; Load X register both bytes of address 
+01097 C879 39                                     RTS                      ; Return from sub routine 
+01098               ; 
+01099               ;       ADD IN THE ADDRESS OFFSET 
+01100               ; 
+01101 C87A 8D 10                  GETHEX          BSR     CONVHEX          ; Go get byte of data and convert to binary 
+01102 C87C 48                                     ASLA                     ; Shift the 4 bits into msb 
+01103 C87D 48                                     ASLA                     ; Shift the 4 bits into msb 
+01104 C87E 48                                     ASLA                     ; Shift the 4 bits into msb 
+01105 C87F 48                                     ASLA                     ; Shift the 4 bits into msb 
+01106 C880 16                                     TAB                      ; Transfer "A" to "B" 
+01107 C881 8D 09                                  BSR     CONVHEX          ; Go get byte of data and convert to binary 
+01108 C883 1B                                     ABA                      ; Add 4 bits in "A" and "B" into "B" 
+01109 C884 16                                     TAB                      ; Transfer "A" to "B" 
+01110 C885 FB 7F74                                ADDB    TEMPA            ; Add into checksum 
+01111 C888 F7 7F74                                STAB    TEMPA            ; Add into checksum 
+01112 C88B 39                                     RTS                      ; Return from sub routine 
+01113               ;        
+01114 C88C BD C8A6                CONVHEX         JSR     GETCHAR          ; Get HEX character from ACIA 
+01115 C88F 80 30                                  SUBA    #$30             ; Convert to binary 
+01116 C891 2B CD                                  BMI     QUESTION         ; Convert to binary 
+01117 C893 81 09                                  CMPA    #$09             ; Convert to binary 
+01118 C895 2F 0A                                  BLE     RETURN2          ; Convert to binary 
+01119 C897 81 11                                  CMPA    #$11             ; Convert to binary 
+01120 C899 2B 07                                  BMI     INCSTACK         ; Convert to binary 
+01121 C89B 81 16                                  CMPA    #$16             ; Convert to binary 
+01122 C89D 2E 03                                  BGT     INCSTACK         ; Convert to binary 
+01123 C89F 80 07                                  SUBA    #$07             ; Convert to binary 
+01124 C8A1 39                     RETURN2         RTS                      ; Return from sub routine 
+01125               ;   
+01126 C8A2 31                     INCSTACK        INS                      ; Restore stack position 
+01127 C8A3 31                                     INS                      ; Restore stack position 
+01128 C8A4 20 BA                                  BRA     QUESTION         ; Go send ? and exit 
+01129               ; 
+01130 C8A6 37                     GETCHAR         PSHB 
+01131 C8A7 F6 8018                WAITIN          LDAB    ACIACS           ; LOAD ACIA CONTROL REGISTER 
+01132 C8AA 57                                     ASRB                     ; SHIFT RIGHT  ACIADA 
+01133 C8AB 24 FA                                  BCC     WAITIN           ; IF CARRY NOT SET THEN AGAIN 
+01134 C8AD B6 8019                                LDAA    ACIADA           ; LOAD DATA REGISTER 
+01135 C8B0 33                                     PULB                     ; RESTORE B REGISTER 
+01136 C8B1 8D 01                                  BSR     OUTPUTA          ; ECHO INPUT 
+01137 C8B3 39                                     RTS 
+01138               ; 
+01139 C8B4 37                     OUTPUTA         PSHB                     ; SAVE B 
+01140 C8B5 F6 8018                WAITOUT         LDAB    ACIACS           ; LOAD ACIA CONTROL REGISTER 
+01141 C8B8 57                                     ASRB                     ; SHIFT RIGHT 
+01142 C8B9 57                                     ASRB                     ; SHIFT RIGHT 
+01143 C8BA 24 F9                                  BCC     WAITOUT          ; IF CARRY NOT SET DO AGAIN 
+01144 C8BC B7 8019                                STAA    ACIADA           ; SEND CHARACTOR TO ACIA 
+01145 C8BF 33                                     PULB                     ; RESTORE B 
+01146 C8C0 39                                     RTS                      ; RETURN FROM ROUTINE 
+01147               ; 
+01148 C8C1 A6 00                  OUTSTR          LDAA    0,X              ; Read String 
+01149 C8C3 81 04                                  CMPA    #$4              ; Is it EOT? 
+01150 C8C5 27 05                                  BEQ     STEXIT           ; Exit if EOT 
+01151 C8C7 8D EB                                  BSR     OUTPUTA          ; Print Character 
+01152 C8C9 08                                     INX                      ; Point at next character 
+01153 C8CA 20 F5                                  BRA     OUTSTR           ; Loop and read next 
+01154 C8CC 39                     STEXIT          RTS                      ; 
+01155               ;  
+01156               ;   STARTUP VECTORS $FFF8 -$FFFF 
+01157               ; 
+01158         FFF8                                ORG     $FFF8 
+01159               ; 
+01160 FFF8    C055                                FDB     IO 
+01161 FFFA    C05F                                FDB     SWI 
+01162 FFFC    C05A                                FDB     POWDWN 
+01163 FFFE    C000                                FDB     START 
+01164               ; 
+01165         0000                                END 
+01166               ; 
+                    ; No errors 
+ 
+
